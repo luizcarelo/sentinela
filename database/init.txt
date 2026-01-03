@@ -1,0 +1,87 @@
+-- Sentinel IP Database Initialization
+-- Dialect: PostgreSQL
+
+-- 1. Setup Extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. Create Tables
+
+-- Tabela de Empresas (Clientes)
+CREATE TABLE IF NOT EXISTS companies (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    document VARCHAR(50), -- CNPJ/CPF
+    status VARCHAR(20) DEFAULT 'HEALTHY', -- HEALTHY, WARNING, CRITICAL
+    agent_status VARCHAR(20) DEFAULT 'DISCONNECTED',
+    agent_ip VARCHAR(50),
+    contact VARCHAR(100),
+    total_devices INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela de Dispositivos
+CREATE TABLE IF NOT EXISTS devices (
+    id VARCHAR(50) PRIMARY KEY,
+    company_id VARCHAR(50) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    ip VARCHAR(50) NOT NULL,
+    port INTEGER DEFAULT 80,
+    type VARCHAR(50) NOT NULL, -- CAMERA, NVR, ALARM, SWITCH
+    vendor VARCHAR(50) NOT NULL, -- Intelbras, Hikvision, etc
+    model VARCHAR(100),
+    location VARCHAR(255),
+    status VARCHAR(20) DEFAULT 'OFFLINE', -- ONLINE, OFFLINE, WARNING, MAINTENANCE
+    uptime VARCHAR(50),
+    last_seen TIMESTAMP WITH TIME ZONE,
+    firmware VARCHAR(100),
+    mac VARCHAR(50),
+    tags TEXT[], -- Array de tags
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela de Alertas
+CREATE TABLE IF NOT EXISTS alerts (
+    id VARCHAR(50) PRIMARY KEY,
+    company_id VARCHAR(50) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    device_id VARCHAR(50) REFERENCES devices(id) ON DELETE SET NULL,
+    severity VARCHAR(20) NOT NULL, -- CRITICAL, HIGH, MEDIUM, LOW
+    message TEXT NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    acknowledged BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela de Métricas (Exemplo para TimescaleDB futuro)
+CREATE TABLE IF NOT EXISTS metrics (
+    id SERIAL PRIMARY KEY,
+    device_id VARCHAR(50) NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    metric_type VARCHAR(50) NOT NULL, -- BITRATE, LATENCY, CPU, DISK
+    value NUMERIC(10, 2) NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Seed Data (Dados Iniciais baseados nos Mocks)
+
+-- Inserindo Empresas
+INSERT INTO companies (id, name, document, status, agent_status, agent_ip, total_devices, contact) VALUES
+('c1', 'Condomínio Jardins (Cliente A)', '12.345.678/0001-90', 'WARNING', 'CONNECTED', '200.10.10.5', 12, 'Síndico João'),
+('c2', 'Logística Express (Cliente B)', '98.765.432/0001-10', 'HEALTHY', 'CONNECTED', '189.50.20.1', 45, 'Gerente TI Ana'),
+('c3', 'Supermercado Popular (Cliente C)', '11.111.222/0001-33', 'CRITICAL', 'DISCONNECTED', 'Unknown', 8, 'Gerente Marcos');
+
+-- Inserindo Dispositivos
+INSERT INTO devices (id, company_id, name, ip, port, type, vendor, model, location, status, uptime, last_seen, firmware, mac, tags) VALUES
+-- Devices Empresa C1
+('1', 'c1', 'Câmera Entrada Principal', '192.168.1.101', 80, 'CAMERA', 'Intelbras', 'VIP 3230 B', 'Portão A', 'ONLINE', '14d 2h 12m', NOW(), '2.4.1', 'AA:BB:CC:DD:EE:01', ARRAY['externa', 'entrada']),
+('2', 'c1', 'PTZ Galpão', '192.168.1.102', 80, 'CAMERA', 'Intelbras', 'VIP 5220 SD', 'Galpão B', 'WARNING', '2d 5h 0m', NOW(), '1.0.0', 'AA:BB:CC:DD:EE:02', ARRAY['ptz', 'estoque']),
+-- Devices Empresa C2
+('3', 'c2', 'NVR Central', '10.0.0.200', 37777, 'NVR', 'Intelbras', 'MHDX 3116', 'Sala de Servidores', 'ONLINE', '45d 10h 33m', NOW(), '4.000.00IB0', 'AA:BB:CC:DD:EE:03', ARRAY['gravador', 'core']),
+-- Devices Empresa C3
+('4', 'c3', 'Sensor Perímetro', '192.168.0.150', 80, 'ALARM', 'Generic ONVIF', 'AMT-8000 Bridge', 'Cerca Perímetro', 'OFFLINE', '0m', NOW() - INTERVAL '2 hours', 'v1.2', 'AA:BB:CC:DD:EE:04', ARRAY['segurança', 'perímetro']);
+
+-- Inserindo Alertas
+INSERT INTO alerts (id, company_id, device_id, severity, message, timestamp, acknowledged) VALUES
+('a1', 'c3', '4', 'CRITICAL', 'Dispositivo Inacessível (Agente desconectado)', NOW() - INTERVAL '2 hours', false),
+('a2', 'c1', '2', 'HIGH', 'Alta Latência Stream RTSP (>500ms)', NOW() - INTERVAL '15 minutes', false),
+('a3', 'c2', '3', 'LOW', 'Uso de Armazenamento > 85%', NOW() - INTERVAL '4 hours', true);
