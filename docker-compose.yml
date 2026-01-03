@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # Banco de Dados Principal (PostgreSQL)
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentinel_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_production_password}
+      POSTGRES_DB: sentinel_core
+    ports:
+      - "5432:5432" # Em produção real, considere não expor esta porta para a internet, apenas para a rede interna (backend)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sentinel_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d sentinel_core"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Banco de Cache e Filas (Redis) - Necessário para o Baileys/BullMQ
+  redis:
+    image: redis:alpine
+    container_name: sentinel_queue
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sentinel_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+# Definição de Volumes Persistentes
+volumes:
+  postgres_data:
+  redis_data:
+
+# Definição de Rede Interna
+networks:
+  sentinel_network:
+    driver: bridge
