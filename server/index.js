@@ -1,10 +1,11 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import pg from 'pg';
 
 const { Pool } = pg;
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Configuração da conexão com o Banco de Dados
 const pool = new Pool({

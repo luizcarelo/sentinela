@@ -1,10 +1,27 @@
 import React, { useState } from 'react';
-import { MessageSquare, Shield, Smartphone, Zap, Check, WifiOff, QrCode, Server, Terminal, RefreshCw, AppWindow } from 'lucide-react';
+import { MessageSquare, Shield, Smartphone, Zap, Check, WifiOff, QrCode, Server, Terminal, RefreshCw, AppWindow, Copy } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   // Estado local para simular o status da conexão para fins de demonstração
   const [connectionStatus, setConnectionStatus] = useState<'CONNECTED' | 'DISCONNECTED' | 'QR_READY'>('CONNECTED');
   const [installOs, setInstallOs] = useState<'linux' | 'windows'>('linux');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const linuxCommand = `docker run -d --name sentinel-agent \\
+  -e SERVER_IP=177.153.50.82 \\
+  -e AGENT_TOKEN=YOUR_TOKEN_HERE \\
+  --restart always \\
+  sentinel/agent:latest`;
+
+  const windowsCommand = `$env:SERVER_IP="177.153.50.82";
+$env:AGENT_TOKEN="YOUR_TOKEN_HERE";
+iwr -useb https://dl.sentinel-ip.com/win-install.ps1 | iex`;
 
   return (
     <div className="space-x-6 space-y-6">
@@ -35,7 +52,7 @@ export const Settings: React.FC = () => {
                     {/* OS Tabs */}
                     <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg w-fit">
                         <button
-                            onClick={() => setInstallOs('linux')}
+                            onClick={() => { setInstallOs('linux'); setCopied(false); }}
                             className={`flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all ${
                                 installOs === 'linux' 
                                 ? 'bg-white text-slate-800 shadow-sm' 
@@ -45,7 +62,7 @@ export const Settings: React.FC = () => {
                             <Terminal size={16} className="mr-2" /> Linux / Docker
                         </button>
                         <button
-                            onClick={() => setInstallOs('windows')}
+                            onClick={() => { setInstallOs('windows'); setCopied(false); }}
                             className={`flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all ${
                                 installOs === 'windows' 
                                 ? 'bg-white text-blue-700 shadow-sm' 
@@ -60,20 +77,22 @@ export const Settings: React.FC = () => {
                 <div className="p-6 space-y-4">
                     {installOs === 'linux' ? (
                         <div className="animate-in fade-in slide-in-from-left-2 duration-300">
-                            <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm text-slate-300 relative group">
-                                <div className="flex items-center text-green-400 mb-2">
-                                    <Terminal size={14} className="mr-2" />
-                                    <span>Bash / Docker CLI</span>
+                            <div 
+                                onClick={() => handleCopy(linuxCommand)}
+                                className="bg-slate-900 rounded-lg p-4 font-mono text-sm text-slate-300 relative group cursor-pointer hover:bg-slate-800 transition-colors"
+                            >
+                                <div className="flex items-center justify-between text-green-400 mb-2">
+                                    <div className="flex items-center">
+                                        <Terminal size={14} className="mr-2" />
+                                        <span>Bash / Docker CLI</span>
+                                    </div>
+                                    {copied && <span className="text-xs text-green-400 font-bold flex items-center"><Check size={12} className="mr-1"/> Copiado!</span>}
                                 </div>
-                                <p className="break-all select-all cursor-pointer hover:text-white transition-colors">
-                                    docker run -d --name sentinel-agent \<br/>
-                                    &nbsp;&nbsp;-e SERVER_IP=177.153.50.82 \<br/>
-                                    &nbsp;&nbsp;-e AGENT_TOKEN=YOUR_TOKEN_HERE \<br/>
-                                    &nbsp;&nbsp;--restart always \<br/>
-                                    &nbsp;&nbsp;sentinel/agent:latest
+                                <p className="break-all whitespace-pre-wrap">
+                                    {linuxCommand}
                                 </p>
-                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-slate-800 text-xs px-2 py-1 rounded text-slate-300">
-                                    Click to copy
+                                <div className={`absolute top-2 right-2 transition-opacity bg-slate-700 text-xs px-2 py-1 rounded text-white flex items-center ${copied ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
+                                    <Copy size={12} className="mr-1"/> Clique para copiar
                                 </div>
                             </div>
                             <p className="text-xs text-slate-500 mt-2">
@@ -82,18 +101,22 @@ export const Settings: React.FC = () => {
                         </div>
                     ) : (
                         <div className="animate-in fade-in slide-in-from-right-2 duration-300">
-                            <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm text-slate-300 relative group">
-                                <div className="flex items-center text-blue-400 mb-2">
-                                    <AppWindow size={14} className="mr-2" />
-                                    <span>PowerShell (Admin)</span>
+                            <div 
+                                onClick={() => handleCopy(windowsCommand)}
+                                className="bg-slate-900 rounded-lg p-4 font-mono text-sm text-slate-300 relative group cursor-pointer hover:bg-slate-800 transition-colors"
+                            >
+                                <div className="flex items-center justify-between text-blue-400 mb-2">
+                                    <div className="flex items-center">
+                                        <AppWindow size={14} className="mr-2" />
+                                        <span>PowerShell (Admin)</span>
+                                    </div>
+                                    {copied && <span className="text-xs text-green-400 font-bold flex items-center"><Check size={12} className="mr-1"/> Copiado!</span>}
                                 </div>
-                                <p className="break-all select-all cursor-pointer hover:text-white transition-colors">
-                                    $env:SERVER_IP="177.153.50.82"; <br/>
-                                    $env:AGENT_TOKEN="YOUR_TOKEN_HERE"; <br/>
-                                    iwr -useb https://dl.sentinel-ip.com/win-install.ps1 | iex
+                                <p className="break-all whitespace-pre-wrap">
+                                    {windowsCommand}
                                 </p>
-                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-slate-800 text-xs px-2 py-1 rounded text-slate-300">
-                                    Click to copy
+                                <div className={`absolute top-2 right-2 transition-opacity bg-slate-700 text-xs px-2 py-1 rounded text-white flex items-center ${copied ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
+                                     <Copy size={12} className="mr-1"/> Clique para copiar
                                 </div>
                             </div>
                             <p className="text-xs text-slate-500 mt-2">
