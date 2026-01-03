@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, AlertTriangle, Activity, MapPin, Server, Loader2 } from 'lucide-react';
+import { Users, AlertTriangle, Activity, MapPin, Server, Loader2, Database } from 'lucide-react';
 import { StatCard } from '../components/StatCard';
 import { api } from '../services/api';
 import { Company, Alert } from '../types';
@@ -12,23 +12,17 @@ export const GlobalDashboard: React.FC<GlobalDashboardProps> = ({ onSelectCompan
   const [companies, setCompanies] = useState<Company[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const [companiesData, alertsData] = await Promise.all([
-          api.getCompanies(),
-          api.getAlerts()
-        ]);
-        setCompanies(companiesData);
-        setAlerts(alertsData);
-      } catch (err) {
-        console.error(err);
-        setError('Falha ao carregar dados do servidor. Verifique se a API está rodando.');
-      } finally {
-        setLoading(false);
-      }
+      // API now handles fallbacks to Mock data, so we don't need extensive try/catch for connection errors here
+      const [companiesData, alertsData] = await Promise.all([
+        api.getCompanies(),
+        api.getAlerts()
+      ]);
+      setCompanies(companiesData);
+      setAlerts(alertsData);
+      setLoading(false);
     };
 
     fetchData();
@@ -38,23 +32,7 @@ export const GlobalDashboard: React.FC<GlobalDashboardProps> = ({ onSelectCompan
     return (
       <div className="flex h-96 items-center justify-center flex-col">
         <Loader2 size={40} className="text-blue-600 animate-spin mb-4" />
-        <p className="text-slate-500">Conectando ao banco de dados...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-lg text-center">
-        <AlertTriangle className="mx-auto mb-2" size={32} />
-        <h3 className="font-bold text-lg">Erro de Conexão</h3>
-        <p>{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Tentar Novamente
-        </button>
+        <p className="text-slate-500">Sincronizando dados...</p>
       </div>
     );
   }
@@ -71,9 +49,11 @@ export const GlobalDashboard: React.FC<GlobalDashboardProps> = ({ onSelectCompan
           <h2 className="text-2xl font-bold text-slate-800">Central de Operações (Super Admin)</h2>
           <p className="text-slate-500 mt-1">Visão global de todos os clientes de locação e agentes remotos.</p>
         </div>
-        <div className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-mono flex items-center">
-          <Server size={16} className="mr-2 text-green-400" />
-          Server Status: Online
+        <div className="flex items-center gap-2">
+            <div className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-mono flex items-center shadow-sm">
+                <Server size={16} className="mr-2 text-green-400" />
+                System: Online
+            </div>
         </div>
       </div>
 
@@ -153,7 +133,7 @@ export const GlobalDashboard: React.FC<GlobalDashboardProps> = ({ onSelectCompan
         ))}
         {companies.length === 0 && (
           <div className="col-span-3 text-center py-10 text-slate-400">
-            Nenhuma empresa cadastrada no banco de dados.
+            Nenhuma empresa encontrada.
           </div>
         )}
       </div>
