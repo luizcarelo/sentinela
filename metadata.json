@@ -1,0 +1,5 @@
+{
+  "name": "Sentinel IP Manager",
+  "description": "Painel de gestão de segurança corporativa especializado em dispositivos Intelbras e ONVIF, com monitoramento SNMP, verificações de saúde RTSP e alertas via WhatsApp LID.",
+  "requestFramePermissions": []
+}
