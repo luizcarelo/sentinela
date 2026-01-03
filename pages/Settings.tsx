@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { MessageSquare, Shield, Smartphone, Zap, Check, WifiOff, QrCode, Server, Terminal, RefreshCw } from 'lucide-react';
+import { MessageSquare, Shield, Smartphone, Zap, Check, WifiOff, QrCode, Server, Terminal, RefreshCw, AppWindow } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   // Estado local para simular o status da conexão para fins de demonstração
   const [connectionStatus, setConnectionStatus] = useState<'CONNECTED' | 'DISCONNECTED' | 'QR_READY'>('CONNECTED');
+  const [installOs, setInstallOs] = useState<'linux' | 'windows'>('linux');
 
   return (
-    <div className="space-y-6">
+    <div className="space-x-6 space-y-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Configurações do Sistema</h2>
           <p className="text-slate-500 mt-1">Configure canais de notificação e arquitetura dos agentes.</p>
@@ -18,30 +19,94 @@ export const Settings: React.FC = () => {
             
             {/* Server Configuration */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center">
-                    <div className="bg-blue-100 p-2 rounded-lg mr-3">
-                        <Server className="text-blue-600" size={20} />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-slate-800">Configuração do Servidor & Agentes</h3>
-                        <p className="text-xs text-slate-500">Arquitetura Distribuída</p>
+                <div className="p-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                    <div className="flex items-center">
+                        <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                            <Server className="text-blue-600" size={20} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-800">Agentes de Coleta</h3>
+                            <p className="text-xs text-slate-500">Instalação Multiplataforma</p>
+                        </div>
                     </div>
                 </div>
-                <div className="p-6 space-y-4">
-                    <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm text-slate-300">
-                        <div className="flex items-center text-green-400 mb-2">
-                            <Terminal size={14} className="mr-2" />
-                            <span>Comando de Instalação do Agente (Linux/Docker)</span>
-                        </div>
-                        <p className="break-all select-all cursor-pointer hover:text-white transition-colors">
-                            docker run -d --name sentinel-agent -e SERVER_IP=177.153.50.82 -e AGENT_TOKEN=YOUR_TOKEN_HERE sentinel/agent:latest
-                        </p>
+                
+                <div className="px-6 pt-4">
+                    {/* OS Tabs */}
+                    <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg w-fit">
+                        <button
+                            onClick={() => setInstallOs('linux')}
+                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                                installOs === 'linux' 
+                                ? 'bg-white text-slate-800 shadow-sm' 
+                                : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                        >
+                            <Terminal size={16} className="mr-2" /> Linux / Docker
+                        </button>
+                        <button
+                            onClick={() => setInstallOs('windows')}
+                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                                installOs === 'windows' 
+                                ? 'bg-white text-blue-700 shadow-sm' 
+                                : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                        >
+                            <AppWindow size={16} className="mr-2" /> Windows Service
+                        </button>
                     </div>
-                    <div className="text-sm text-slate-600">
-                        <p className="mb-2"><strong>Arquitetura:</strong> O sistema opera em modo Hub-Spoke.</p>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    {installOs === 'linux' ? (
+                        <div className="animate-in fade-in slide-in-from-left-2 duration-300">
+                            <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm text-slate-300 relative group">
+                                <div className="flex items-center text-green-400 mb-2">
+                                    <Terminal size={14} className="mr-2" />
+                                    <span>Bash / Docker CLI</span>
+                                </div>
+                                <p className="break-all select-all cursor-pointer hover:text-white transition-colors">
+                                    docker run -d --name sentinel-agent \<br/>
+                                    &nbsp;&nbsp;-e SERVER_IP=177.153.50.82 \<br/>
+                                    &nbsp;&nbsp;-e AGENT_TOKEN=YOUR_TOKEN_HERE \<br/>
+                                    &nbsp;&nbsp;--restart always \<br/>
+                                    &nbsp;&nbsp;sentinel/agent:latest
+                                </p>
+                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-slate-800 text-xs px-2 py-1 rounded text-slate-300">
+                                    Click to copy
+                                </div>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-2">
+                                Ideal para servidores Debian/Ubuntu ou Raspberry Pi. Requer Docker Engine instalado.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="animate-in fade-in slide-in-from-right-2 duration-300">
+                            <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm text-slate-300 relative group">
+                                <div className="flex items-center text-blue-400 mb-2">
+                                    <AppWindow size={14} className="mr-2" />
+                                    <span>PowerShell (Admin)</span>
+                                </div>
+                                <p className="break-all select-all cursor-pointer hover:text-white transition-colors">
+                                    $env:SERVER_IP="177.153.50.82"; <br/>
+                                    $env:AGENT_TOKEN="YOUR_TOKEN_HERE"; <br/>
+                                    iwr -useb https://dl.sentinel-ip.com/win-install.ps1 | iex
+                                </p>
+                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-slate-800 text-xs px-2 py-1 rounded text-slate-300">
+                                    Click to copy
+                                </div>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-2">
+                                Instala o Sentinel Agent como um Serviço do Windows (inicia automaticamente com o sistema). Requer Windows 10/11 ou Server 2016+.
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="text-sm text-slate-600 border-t border-slate-100 pt-4 mt-2">
+                        <p className="mb-2"><strong>Arquitetura Hub-Spoke:</strong></p>
                         <ul className="list-disc ml-5 space-y-1">
                             <li><strong>Servidor Central:</strong> 177.153.50.82 (Recebe dados e gerencia dashboards)</li>
-                            <li><strong>Agentes:</strong> Devem ser instalados na rede local de cada cliente para realizar varreduras (SNMP/ONVIF).</li>
+                            <li><strong>Agentes Locais:</strong> Devem ser instalados na rede do cliente para realizar varreduras (SNMP/ONVIF) e streams RTSP.</li>
                         </ul>
                     </div>
                 </div>

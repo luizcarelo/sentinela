@@ -1,17 +1,68 @@
-import React from 'react';
-import { Users, AlertTriangle, Activity, MapPin, Server } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Users, AlertTriangle, Activity, MapPin, Server, Loader2 } from 'lucide-react';
 import { StatCard } from '../components/StatCard';
-import { MOCK_COMPANIES, MOCK_ALERTS } from '../constants';
+import { api } from '../services/api';
+import { Company, Alert } from '../types';
 
 interface GlobalDashboardProps {
   onSelectCompany: (companyId: string) => void;
 }
 
 export const GlobalDashboard: React.FC<GlobalDashboardProps> = ({ onSelectCompany }) => {
-  const totalCompanies = MOCK_COMPANIES.length;
-  const companiesWithIssues = MOCK_COMPANIES.filter(c => c.status !== 'HEALTHY').length;
-  const totalCriticalAlerts = MOCK_ALERTS.filter(a => a.severity === 'CRITICAL').length;
-  const agentsOnline = MOCK_COMPANIES.filter(c => c.agentStatus === 'CONNECTED').length;
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [companiesData, alertsData] = await Promise.all([
+          api.getCompanies(),
+          api.getAlerts()
+        ]);
+        setCompanies(companiesData);
+        setAlerts(alertsData);
+      } catch (err) {
+        console.error(err);
+        setError('Falha ao carregar dados do servidor. Verifique se a API está rodando.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center flex-col">
+        <Loader2 size={40} className="text-blue-600 animate-spin mb-4" />
+        <p className="text-slate-500">Conectando ao banco de dados...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-lg text-center">
+        <AlertTriangle className="mx-auto mb-2" size={32} />
+        <h3 className="font-bold text-lg">Erro de Conexão</h3>
+        <p>{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          Tentar Novamente
+        </button>
+      </div>
+    );
+  }
+
+  const totalCompanies = companies.length;
+  const companiesWithIssues = companies.filter(c => c.status !== 'HEALTHY').length;
+  const totalCriticalAlerts = alerts.filter(a => a.severity === 'CRITICAL').length;
+  const agentsOnline = companies.filter(c => c.agentStatus === 'CONNECTED').length;
 
   return (
     <div className="space-y-6">
@@ -22,7 +73,7 @@ export const GlobalDashboard: React.FC<GlobalDashboardProps> = ({ onSelectCompan
         </div>
         <div className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-mono flex items-center">
           <Server size={16} className="mr-2 text-green-400" />
-          Server IP: 177.153.50.82
+          Server Status: Online
         </div>
       </div>
 
@@ -50,13 +101,13 @@ export const GlobalDashboard: React.FC<GlobalDashboardProps> = ({ onSelectCompan
           title="Agentes Online" 
           value={`${agentsOnline}/${totalCompanies}`} 
           icon={<MapPin size={24} />} 
-          color={agentsOnline === totalCompanies ? 'green' : 'red'}
+          color={agentsOnline === totalCompanies && totalCompanies > 0 ? 'green' : 'red'}
         />
       </div>
 
       <h3 className="text-lg font-semibold text-slate-800 mt-4">Status por Empresa (Agente Remoto)</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {MOCK_COMPANIES.map(company => (
+        {companies.map(company => (
           <div 
             key={company.id} 
             onClick={() => onSelectCompany(company.id)}
@@ -100,6 +151,11 @@ export const GlobalDashboard: React.FC<GlobalDashboardProps> = ({ onSelectCompan
             </div>
           </div>
         ))}
+        {companies.length === 0 && (
+          <div className="col-span-3 text-center py-10 text-slate-400">
+            Nenhuma empresa cadastrada no banco de dados.
+          </div>
+        )}
       </div>
     </div>
   );

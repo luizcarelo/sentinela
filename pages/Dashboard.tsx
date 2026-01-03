@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Activity, Server, AlertTriangle, ShieldCheck, Wifi, ArrowLeft, ChevronDown, ChevronUp, MapPin, Cpu, Info, CheckCircle, FileText, Loader2 } from 'lucide-react';
 import { StatCard } from '../components/StatCard';
-import { MOCK_ALERTS, MOCK_DEVICES, BITRATE_DATA, NETWORK_TRAFFIC_DATA, MOCK_COMPANIES } from '../constants';
-import { DeviceStatus } from '../types';
+import { BITRATE_DATA, NETWORK_TRAFFIC_DATA } from '../constants';
+import { DeviceStatus, Company, Alert, Device } from '../types';
+import { api } from '../services/api';
 
 interface DashboardProps {
     companyId?: string;
@@ -13,14 +14,41 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ companyId, onBack }) => {
   const [expandedAlertId, setExpandedAlertId] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-
-  // Filtrar dados baseados na empresa selecionada
-  const company = MOCK_COMPANIES.find(c => c.id === companyId);
-  const companyAlerts = companyId ? MOCK_ALERTS.filter(a => a.companyId === companyId) : MOCK_ALERTS;
-  const companyDevices = companyId ? MOCK_DEVICES.filter(d => d.companyId === companyId) : MOCK_DEVICES;
   
-  const onlineCount = companyDevices.filter(d => d.status === DeviceStatus.ONLINE).length;
-  const onlineRatio = companyDevices.length > 0 ? ((onlineCount / companyDevices.length) * 100).toFixed(1) : '0';
+  // State for Real Data
+  const [company, setCompany] = useState<Company | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+        if (!companyId) return;
+        setLoading(true);
+        try {
+            // Fetch company info (usando lista de todas as empresas e filtrando, 
+            // idealmente teria um endpoint /companies/:id)
+            const allCompanies = await api.getCompanies();
+            const foundCompany = allCompanies.find(c => c.id === companyId);
+            setCompany(foundCompany || null);
+
+            const [alertsData, devicesData] = await Promise.all([
+                api.getAlerts(companyId),
+                api.getDevices(companyId)
+            ]);
+            setAlerts(alertsData);
+            setDevices(devicesData);
+        } catch (e) {
+            console.error("Error loading dashboard data", e);
+        } finally {
+            setLoading(false);
+        }
+    };
+    loadData();
+  }, [companyId]);
+  
+  const onlineCount = devices.filter(d => d.status === DeviceStatus.ONLINE).length;
+  const onlineRatio = devices.length > 0 ? ((onlineCount / devices.length) * 100).toFixed(1) : '0';
 
   const toggleAlert = (id: string) => {
     if (expandedAlertId === id) {
@@ -30,28 +58,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ companyId, onBack }) => {
     }
   };
 
-  const handleAcknowledge = (e: React.MouseEvent, id: string) => {
+  const handleAcknowledge = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    // Lógica de reconhecimento aqui (API call)
-    console.log(`Alerta ${id} reconhecido pelo operador.`);
-    alert("Comando de reconhecimento enviado para auditoria.");
+    try {
+        await api.acknowledgeAlert(id);
+        // Atualiza estado local
+        setAlerts(prev => prev.map(a => a.id === id ? { ...a, acknowledged: true } : a));
+    } catch (err) {
+        alert("Erro ao reconhecer alerta. Tente novamente.");
+    }
   };
 
   const handleGenerateReport = () => {
     setIsGeneratingReport(true);
-    // Simula uma chamada assíncrona ao backend ou processamento de PDF
     setTimeout(() => {
         setIsGeneratingReport(false);
-        // Em um cenário real, aqui seria feito o download do Blob
-        alert(`Relatório PDF gerado com sucesso para: ${company?.name}\nIncluindo KPIs e ${companyAlerts.length} alertas.`);
+        alert(`Relatório PDF gerado com sucesso para: ${company?.name}`);
     }, 2000);
   };
 
   const getDeviceDetails = (deviceId: string) => {
-    return MOCK_DEVICES.find(d => d.id === deviceId);
+    return devices.find(d => d.id === deviceId);
   };
 
-  if (!company) return <div>Empresa não encontrada.</div>;
+  if (loading) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-blue-600"/></div>;
+  if (!company) return <div>Empresa não encontrada ou erro de conexão.</div>;
 
   return (
     <div className="space-y-6">
@@ -103,7 +134,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ companyId, onBack }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Dispositivos Locados" 
-          value={companyDevices.length} 
+          value={devices.length} 
           icon={<Server size={24} />} 
           trend="0%" 
           trendUp={true} 
@@ -111,9 +142,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ companyId, onBack }) => {
         />
         <StatCard 
           title="Alertas Ativos" 
-          value={companyAlerts.length} 
+          value={alerts.length} 
           icon={<AlertTriangle size={24} />} 
-          trend={companyAlerts.length > 0 ? "+1" : "0"} 
+          trend={alerts.length > 0 ? "+1" : "0"} 
           trendUp={false} 
           color="red"
         />
@@ -197,10 +228,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ companyId, onBack }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {companyAlerts.length === 0 ? (
+              {alerts.length === 0 ? (
                  <tr><td colSpan={6} className="px-6 py-4 text-center text-slate-500">Nenhum alerta recente para esta empresa.</td></tr>
               ) : (
-                companyAlerts.map((alert) => {
+                alerts.map((alert) => {
                     const device = getDeviceDetails(alert.deviceId);
                     const isExpanded = expandedAlertId === alert.id;
                     

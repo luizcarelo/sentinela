@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Search, Filter, Plus, MoreVertical, RefreshCw, ArrowLeft, Network } from 'lucide-react';
-import { MOCK_DEVICES, MOCK_COMPANIES } from '../constants';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, Plus, MoreVertical, RefreshCw, ArrowLeft, Network, Loader2 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
-import { DeviceType, Vendor } from '../types';
+import { Device, Company } from '../types';
+import { api } from '../services/api';
 
 interface InventoryProps {
     companyId?: string;
@@ -11,25 +11,59 @@ interface InventoryProps {
 
 export const Inventory: React.FC<InventoryProps> = ({ companyId, onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Se companyId existir, filtra. Se não, mostra tudo (modo super admin global inventory)
-  const initialDevices = companyId 
-    ? MOCK_DEVICES.filter(d => d.companyId === companyId)
-    : MOCK_DEVICES;
+  // Helper para buscar status do agente
+  const getAgentStatus = (deviceCompanyId: string) => {
+    const company = companies.find(c => c.id === deviceCompanyId);
+    return company?.agentStatus || 'DISCONNECTED';
+  };
 
-  const filteredDevices = initialDevices.filter(d => 
+  const getCompanyName = (deviceCompanyId: string) => {
+      const company = companies.find(c => c.id === deviceCompanyId);
+      return company?.name || 'Unknown';
+  };
+
+  const loadData = async () => {
+      setLoading(true);
+      try {
+          // Fetch devices
+          const fetchedDevices = await api.getDevices(companyId);
+          setDevices(fetchedDevices);
+
+          // Fetch companies context for Agent Status map
+          // (Se tiver companyId, fetch só dela, senão todas)
+          const fetchedCompanies = await api.getCompanies();
+          setCompanies(fetchedCompanies);
+
+      } catch (err) {
+          console.error("Failed to load inventory", err);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [companyId]);
+
+  const filteredDevices = devices.filter(d => 
     d.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     d.ip.includes(searchTerm) ||
     d.model.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const companyName = companyId ? MOCK_COMPANIES.find(c => c.id === companyId)?.name : 'Todos os Clientes';
+  const displayCompanyName = companyId 
+    ? companies.find(c => c.id === companyId)?.name 
+    : 'Todos os Clientes';
 
-  // Helper para buscar status do agente
-  const getAgentStatus = (deviceCompanyId: string) => {
-    const company = MOCK_COMPANIES.find(c => c.id === deviceCompanyId);
-    return company?.agentStatus || 'DISCONNECTED';
-  };
+  if (loading) return (
+      <div className="flex h-64 items-center justify-center">
+          <Loader2 className="animate-spin text-blue-600" size={32} />
+      </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -41,7 +75,7 @@ export const Inventory: React.FC<InventoryProps> = ({ companyId, onBack }) => {
             </button>
           )}
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">Inventário: {companyName}</h2>
+            <h2 className="text-2xl font-bold text-slate-800">Inventário: {displayCompanyName}</h2>
             <p className="text-slate-500 mt-1">Gerencie e monitore os ativos locados.</p>
           </div>
         </div>
@@ -69,7 +103,10 @@ export const Inventory: React.FC<InventoryProps> = ({ companyId, onBack }) => {
               <Filter size={18} className="mr-2" />
               Filtrar
             </button>
-            <button className="flex-1 sm:flex-none items-center justify-center px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50">
+            <button 
+                onClick={loadData}
+                className="flex-1 sm:flex-none items-center justify-center px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
+            >
               <RefreshCw size={18} className="mr-2" />
               Sincronizar
             </button>
@@ -84,6 +121,7 @@ export const Inventory: React.FC<InventoryProps> = ({ companyId, onBack }) => {
                 <th className="px-6 py-4 font-semibold">Nome do Dispositivo</th>
                 <th className="px-6 py-4 font-semibold">Endereço IP</th>
                 <th className="px-6 py-4 font-semibold">Tipo & Fabricante</th>
+                {!companyId && <th className="px-6 py-4 font-semibold">Cliente</th>}
                 <th className="px-6 py-4 font-semibold">Localização</th>
                 <th className="px-6 py-4 font-semibold">Status Agente</th>
                 <th className="px-6 py-4 font-semibold">Status Disp.</th>
@@ -110,6 +148,11 @@ export const Inventory: React.FC<InventoryProps> = ({ companyId, onBack }) => {
                         {device.type}
                       </span>
                     </td>
+                    {!companyId && (
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                            {getCompanyName(device.companyId)}
+                        </td>
+                    )}
                     <td className="px-6 py-4 text-slate-600">{device.location}</td>
                     <td className="px-6 py-4">
                         {agentStatus === 'CONNECTED' ? (
@@ -138,7 +181,7 @@ export const Inventory: React.FC<InventoryProps> = ({ companyId, onBack }) => {
               })}
               {filteredDevices.length === 0 && (
                 <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                    <td colSpan={companyId ? 7 : 8} className="px-6 py-12 text-center text-slate-400">
                         Nenhum dispositivo encontrado.
                     </td>
                 </tr>
